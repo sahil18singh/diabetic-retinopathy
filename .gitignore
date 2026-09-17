@@ -1,0 +1,18 @@
+# Dataset
+dr-backend/datasets/
+
+# Python
+dr-backend/__pycache__/
+*.pyc
+.venv/
+venv/
+
+# Environment variables
+.env
+
+# Node
+dr-frontend/node_modules/
+
+# Build
+dr-frontend/dist/
+dr-frontend/build/
