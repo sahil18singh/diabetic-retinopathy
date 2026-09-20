@@ -1,0 +1,32 @@
+Using device: cpu
+CSV Columns: ['id_code', 'diagnosis']
+First few image IDs in CSV: ['1ae8c165fd53', '1b329a127307', '1b32e1d775ea', '1b3647865779', '1b398c0494d1']
+Sample actual files in folder: ['1ae8c165fd53.png', '1b329a127307.png', '1b32e1d775ea.png', '1b3647865779.png', '1b398c0494d1.png']
+Loaded 2930 training samples and 366 validation samples.
+Extracting from train_images: 100%|██████████████████████████████████████████████████████| 2930/2930 [06:47<00:00,  7.19it/s]
+Extracting from val_images: 100%|██████████████████████████████████████████████████████████| 366/366 [00:52<00:00,  7.01it/s]
+
+Training SVM Classifier...
+
+--- Validation Results ---
+Accuracy: 81.15%
+
+Confusion Matrix:
+[[170   1   1   0   0]
+ [  0  31   7   0   2]
+ [  6  14  71   5   8]
+ [  0   2  10   6   4]
+ [  0   2   4   3  19]]
+
+Classification Report:
+                   precision    recall  f1-score   support
+
+        0 - No DR       0.97      0.99      0.98       172
+         1 - Mild       0.62      0.78      0.69        40
+     2 - Moderate       0.76      0.68      0.72       104
+       3 - Severe       0.43      0.27      0.33        22
+4 - Proliferative       0.58      0.68      0.62        28
+
+         accuracy                           0.81       366
+        macro avg       0.67      0.68      0.67       366
+     weighted avg       0.81      0.81      0.81       366
