@@ -1,5 +1,6 @@
 # Dataset
 dr-backend/datasets/
+dr-backend/aptos/
 
 # Python
 dr-backend/__pycache__/
