@@ -3,30 +3,62 @@ import cv2
 import pandas as pd
 import numpy as np
 import joblib
-from skimage.feature import graycomatrix, graycoprops
+from skimage.feature import graycomatrix, graycoprops, local_binary_pattern
 from sklearn.ensemble import RandomForestClassifier
 from sklearn.metrics import classification_report, confusion_matrix, accuracy_score, cohen_kappa_score
 
 def extract_features(image_path):
-    """Extracts GLCM texture features and color statistics from a fundus image."""
-    img = cv2.imread(image_path)
-    if img is None:
+    """
+    Extracts GLCM, LBP, and Color features matching the pre-processing pipeline.
+    """
+    img_bgr = cv2.imread(image_path)
+    if img_bgr is None:
         return None
-        
-    gray = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-    gray = cv2.resize(gray, (256, 256))
-    
-    # Texture Features (GLCM)
-    glcm = graycomatrix(gray, distances=[1], angles=[0], levels=256, symmetric=True, normed=True)
-    contrast = graycoprops(glcm, 'contrast')[0, 0]
-    homogeneity = graycoprops(glcm, 'homogeneity')[0, 0]
-    energy = graycoprops(glcm, 'energy')[0, 0]
-    
-    # Intensity Statistics
-    mean_val = np.mean(gray)
-    std_val = np.std(gray)
-    
-    return [contrast, homogeneity, energy, mean_val, std_val]
+
+    # Convert BGR (OpenCV default) to RGB
+    rgb_img = cv2.cvtColor(img_bgr, cv2.COLOR_BGR2RGB)
+    rgb_img = cv2.resize(rgb_img, (256, 256))
+
+    # --- BRANCH 1: GREEN CHANNEL & TEXTURE FEATURES ---
+    green_channel = rgb_img[:, :, 1]
+
+    # Apply CLAHE
+    clahe = cv2.createCLAHE(clipLimit=2.0, tileGridSize=(8, 8))
+    enhanced_g = clahe.apply(green_channel)
+
+    # A. GLCM Features (0°, 45°, 90°, 135°)
+    angles = [0, np.pi/4, np.pi/2, 3*np.pi/4]
+    glcm = graycomatrix(enhanced_g, distances=[1], angles=angles, levels=256, symmetric=True, normed=True)
+
+    glcm_contrast = graycoprops(glcm, 'contrast').mean()
+    glcm_dissimilarity = graycoprops(glcm, 'dissimilarity').mean()
+    glcm_homogeneity = graycoprops(glcm, 'homogeneity').mean()
+    glcm_energy = graycoprops(glcm, 'energy').mean()
+    glcm_correlation = graycoprops(glcm, 'correlation').mean()
+
+    glcm_features = [glcm_contrast, glcm_dissimilarity, glcm_homogeneity, glcm_energy, glcm_correlation]
+
+    # B. LBP Features
+    P, R = 8, 1
+    lbp = local_binary_pattern(enhanced_g, P, R, method='uniform')
+    n_bins = int(lbp.max() + 1)
+    lbp_hist, _ = np.histogram(lbp.ravel(), bins=n_bins, range=(0, n_bins), density=True)
+
+    # --- BRANCH 2: COLOR FEATURES (Original RGB Image) ---
+    color_features = []
+    for channel_idx in range(3):  # R, G, B
+        ch_data = rgb_img[:, :, channel_idx]
+        color_features.extend([
+            float(np.mean(ch_data)),
+            float(np.var(ch_data)),
+            float(np.std(ch_data)),
+            float(np.min(ch_data)),
+            float(np.max(ch_data))
+        ])
+
+    # --- COMBINED FEATURE VECTOR ---
+    combined_vector = np.hstack([glcm_features, lbp_hist, color_features])
+    return combined_vector
 
 def load_dataset_features(csv_path, image_dir):
     """Loads a CSV and extracts features for all valid images in the directory."""
@@ -54,20 +86,18 @@ def load_dataset_features(csv_path, image_dir):
     return np.array(X), np.array(y)
 
 if __name__ == "__main__":
-    # Define file paths for train, validation, and test sets
-    # Update CSV names if yours differ (e.g., val.csv, test.csv)
-    TRAIN_CSV = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/dr-backend/datasets/train_1.csv"
-    TRAIN_DIR = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/dr-backend/datasets/train_images/train_images"
+    TRAIN_CSV = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/diabetic-retinopathy/dr-backend/datasets/train_1.csv"
+    TRAIN_DIR = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/diabetic-retinopathy/dr-backend/datasets/train_images/train_images"
     
-    VAL_CSV = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/dr-backend/datasets/valid.csv"
-    VAL_DIR = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/dr-backend/datasets/val_images/val_images"
+    VAL_CSV = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/diabetic-retinopathy/dr-backend/datasets/valid.csv"
+    VAL_DIR = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/diabetic-retinopathy/dr-backend/datasets/val_images/val_images"
     
-    TEST_CSV = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/dr-backend/datasets/test.csv"
-    TEST_DIR = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/dr-backend/datasets/test_images/test_images"
+    TEST_CSV = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/diabetic-retinopathy/dr-backend/datasets/test.csv"
+    TEST_DIR = "C:/Users/SAHIL SINGH/OneDrive/Desktop/Mini Project/diabetic-retinopathy/dr-backend/datasets/test_images/test_images"
 
     print("--- STEP 1: Processing Training Data ---")
     X_train, y_train = load_dataset_features(TRAIN_CSV, TRAIN_DIR)
-    print(f"Loaded {len(X_train)} training samples.")
+    print(f"Loaded {len(X_train)} training samples with feature vector length: {X_train.shape[1] if len(X_train) > 0 else 0}")
 
     print("\n--- STEP 2: Processing Validation Data ---")
     X_val, y_val = load_dataset_features(VAL_CSV, VAL_DIR)
@@ -89,7 +119,7 @@ if __name__ == "__main__":
 
     # Overwrite rf_model.pkl so FastAPI immediately serves the best model
     joblib.dump(rf_model, "rf_model.pkl")
-    print("Saved final model to 'rf_model.pkl'.")
+    print("Saved updated model to 'rf_model.pkl'.")
 
     print("\n--- STEP 4: Evaluating on Test Set ---")
     X_test, y_test = load_dataset_features(TEST_CSV, TEST_DIR)
@@ -113,4 +143,4 @@ if __name__ == "__main__":
         print("\nConfusion Matrix:")
         print(confusion_matrix(y_test, y_pred))
     else:
-        print("Note: If test.csv is unlabelled, run predictions on test images to generate your final submission file.")
+        print("Note: Test dataset unlabelled or missing.")
