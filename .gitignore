@@ -17,3 +17,6 @@ dr-frontend/node_modules/
 # Build
 dr-frontend/dist/
 dr-frontend/build/
+
+# Model File
+*.pth
